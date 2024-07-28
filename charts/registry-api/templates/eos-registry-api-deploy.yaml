@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: eos-registry-api
-        image: docker.io/dpthub/eos-registry-api:latest
+        image: docker.io/qwerty703/eos-registery-api:latest
         ports:
         - containerPort: 8761
