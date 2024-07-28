@@ -36,7 +36,7 @@ podTemplate(label: label, yaml: """
 ) {
     node (label) {
         stage ('Checkout SCM'){
-          git credentialsId: 'git', url: 'https://github.com/prpd1/eureka-registry.git', branch: 'main'
+          git credentialsId: 'git', url: 'https://github.com/prpd1/eureka-registry.git', branch: 'master'
           container('build') {
                 stage('Build a Maven project') {
                   //withEnv( ["PATH+MAVEN=${tool mvn_version}/bin"] ) {
