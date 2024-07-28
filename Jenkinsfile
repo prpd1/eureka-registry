@@ -1,32 +1,42 @@
 def label = "eosagent"
 def mvn_version = 'M2'
 podTemplate(label: label, yaml: """
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: build
-  annotations:
-    sidecar.istio.io/inject: "false"
-spec:
-  containers:
-  - name: build
-    image: dpthub/eos-jenkins-agent-base:latest
-    command:
-    - cat
-    tty: true
-    volumeMounts:
-    - name: dockersock
-      mountPath: /var/run/docker.sock
-  volumes:
-  - name: dockersock
-    hostPath:
-      path: /var/run/docker.sock
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              labels:
+                app: build
+              annotations:
+                sidecar.istio.io/inject: "false"
+            spec:
+                containers:
+                - name: build
+                  image: qwerty703/eos-jenkins-agent-base:latest
+                  command:
+                  - cat
+                  tty: true
+                - name: kaniko
+                  image: gcr.io/kaniko-project/executor:debug
+                  command:
+                  - sleep
+                  args:
+                  - 9999999
+                  volumeMounts:
+                  - name: kaniko-secret
+                    mountPath: /kaniko/.docker
+                restartPolicy: Never
+                volumes:
+                - name: kaniko-secret
+                  secret:
+                    secretName: dockercred
+                    items:
+                    - key: .dockerconfigjson
+                      path: config.json
 """
 ) {
     node (label) {
         stage ('Checkout SCM'){
-          git credentialsId: 'git', url: 'https://dptrealtime@bitbucket.org/dptrealtime/eos-registry-api.git', branch: 'master'
+          git credentialsId: 'git', url: '', branch: 'main'
           container('build') {
                 stage('Build a Maven project') {
                   //withEnv( ["PATH+MAVEN=${tool mvn_version}/bin"] ) {
@@ -37,11 +47,11 @@ spec:
                 }
             }
         }
-          stage ('Sonar Scan'){
+        stage ('Sonar Scan'){
           container('build') {
                 stage('Sonar Scan') {
                   withSonarQubeEnv('sonar') {
-                  sh './mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=eos_eos'
+                  sh './mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=eos-sonar_eos'
                 }
                 }
             }
@@ -53,22 +63,22 @@ spec:
                 stage('Artifactory configuration') {
                     rtServer (
                     id: "jfrog",
-                    url: "https://eosartifact.jfrog.io/artifactory",
+                    url: "https://eosadmin.jfrog.io/artifactory",
                     credentialsId: "jfrog"
                 )
 
                 rtMavenDeployer (
                     id: "MAVEN_DEPLOYER",
                     serverId: "jfrog",
-                    releaseRepo: "eos-libs-release-local",
-                    snapshotRepo: "eos-libs-release-local"
+                    releaseRepo: "eos-maven-libs-release-local",
+                    snapshotRepo: "eos-maven-libs-release-local"
                 )
 
                 rtMavenResolver (
                     id: "MAVEN_RESOLVER",
                     serverId: "jfrog",
-                    releaseRepo: "eos-libs-release",
-                    snapshotRepo: "eos-libs-release"
+                    releaseRepo: "eos-maven-libs-release",
+                    snapshotRepo: "eos-maven-libs-release"
                 )            
                 }
             }
@@ -77,7 +87,7 @@ spec:
           container('build') {
                 stage('Deploy Artifacts') {
                     rtMavenRun (
-                    tool: "java", // Tool name from Jenkins configuration
+                    tool: "java2", // Tool name from Jenkins configuration
                     useWrapper: true,
                     pom: 'pom.xml',
                     goals: 'clean install',
@@ -97,12 +107,11 @@ spec:
            }
        }
        stage ('Docker Build'){
-          container('build') {
+          container('kaniko') {
                 stage('Build Image') {
-                    docker.withRegistry( 'https://registry.hub.docker.com', 'docker' ) {
-                    def customImage = docker.build("dpthub/eos-registry-api:latest")
-                    customImage.push()             
-                    }
+                    sh '''
+                      /kaniko/executor --context `pwd` --destination qwerty703/eos-registery-api:latest
+                    '''
                 }
             }
         }
@@ -112,7 +121,7 @@ spec:
             dir('charts') {
               withCredentials([usernamePassword(credentialsId: 'jfrog', usernameVariable: 'username', passwordVariable: 'password')]) {
               sh '/usr/local/bin/helm package registry-api'
-              sh '/usr/local/bin/helm push-artifactory registry-api-1.0.tgz https://eosartifact.jfrog.io/artifactory/eos-helm-local --username $username --password $password'
+              sh '/usr/local/bin/helm push-artifactory registry-api-1.0.tgz https://eosadmin.jfrog.io/artifactory/eos-helm-helm-local --username $username --password $password'
               }
             }
         }
