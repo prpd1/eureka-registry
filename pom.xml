@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.4</version>
+		<version>3.3.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.org.proto</groupId>
@@ -14,7 +14,7 @@
 	<name>registry</name>
 	<description>Demo project for Spring Boot</description>
 	<properties>
-		<java.version>11</java.version>
+		<java.version>17</java.version>
 		<spring-boot-admin.version>2.6.5</spring-boot-admin.version>
 		<sonar.organization>eos-sonar</sonar.organization>
   		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
